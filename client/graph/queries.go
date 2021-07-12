@@ -114,6 +114,18 @@ var (
 			fee
 			prover
 			workIds
+		}
+		transactions {
+			coinbase
+			feeTransfer {
+				fee
+				recipient
+				type
+			}
+		}
+		winnerAccount {
+			publicKey
+			locked
 		}`
 
 	queryAccount = `

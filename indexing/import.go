@@ -39,6 +39,11 @@ func Import(db *store.Store, data *Data) error {
 		return err
 	}
 
+	log.WithField("count", len(data.ValidatorEpochs)).Debug("creating validator epochs")
+	if err := db.ValidatorsEpochs.Import(data.ValidatorEpochs); err != nil {
+		return err
+	}
+
 	log.WithField("count", len(data.Transactions)).Debug("creating transactions")
 	if err := db.Transactions.Import(data.Transactions); err != nil {
 		return err

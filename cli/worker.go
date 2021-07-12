@@ -9,6 +9,7 @@ import (
 
 	"github.com/figment-networks/mina-indexer/client/archive"
 	"github.com/figment-networks/mina-indexer/client/graph"
+	"github.com/figment-networks/mina-indexer/client/staketab"
 	"github.com/figment-networks/mina-indexer/config"
 	"github.com/figment-networks/mina-indexer/store"
 	"github.com/figment-networks/mina-indexer/worker"
@@ -18,7 +19,8 @@ func startSyncWorker(wg *sync.WaitGroup, cfg *config.Config, db *store.Store) co
 	ctx, cancel := context.WithCancel(context.Background())
 	client := graph.NewDefaultClient(cfg.MinaEndpoint)
 	archiveClient := archive.NewDefaultClient(cfg.ArchiveEndpoint)
-	syncWorker := worker.NewSyncWorker(cfg, db, client, archiveClient)
+	staketabClient := staketab.NewDefaultClient(cfg.StaketabEndpoint)
+	syncWorker := worker.NewSyncWorker(cfg, db, client, archiveClient, staketabClient)
 	timer := time.NewTimer(cfg.SyncDuration())
 
 	wg.Add(1)

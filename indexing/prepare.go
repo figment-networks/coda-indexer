@@ -3,12 +3,13 @@ package indexing
 import (
 	"github.com/figment-networks/mina-indexer/client/archive"
 	"github.com/figment-networks/mina-indexer/client/graph"
+	"github.com/figment-networks/mina-indexer/model"
 	"github.com/figment-networks/mina-indexer/model/mapper"
 	"github.com/figment-networks/mina-indexer/model/types"
 )
 
 // Prepare generates a new models from the graph block data
-func Prepare(archiveBlock *archive.Block, graphBlock *graph.Block) (*Data, error) {
+func Prepare(archiveBlock *archive.Block, graphBlock *graph.Block, validatorEpochs []model.ValidatorEpoch) (*Data, error) {
 	block, err := mapper.BlockFromArchive(archiveBlock)
 	if err != nil {
 		return nil, err
@@ -16,6 +17,7 @@ func Prepare(archiveBlock *archive.Block, graphBlock *graph.Block) (*Data, error
 
 	if graphBlock != nil {
 		block.TotalCurrency = types.NewAmount(graphBlock.ProtocolState.ConsensusState.TotalCurrency)
+		block.TransactionsFees = mapper.TransactionFees(graphBlock)
 	}
 
 	// Prepare validator record
@@ -61,12 +63,13 @@ func Prepare(archiveBlock *archive.Block, graphBlock *graph.Block) (*Data, error
 	}
 
 	data := &Data{
-		Block:        block,
-		Validator:    validator,
-		Accounts:     accounts,
-		Transactions: transactions,
-		Snarkers:     snarkers,
-		SnarkJobs:    snarkJobs,
+		Block:           block,
+		Validator:       validator,
+		ValidatorEpochs: validatorEpochs,
+		Accounts:        accounts,
+		Transactions:    transactions,
+		Snarkers:        snarkers,
+		SnarkJobs:       snarkJobs,
 	}
 
 	return data, nil

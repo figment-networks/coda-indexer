@@ -37,3 +37,8 @@ type LedgerEntry struct {
 func (LedgerEntry) TableName() string {
 	return "ledger_entries"
 }
+
+func (l LedgerEntry) IsUntimed() bool {
+	return l.TimingInitialMinimumBalance.Int == nil && l.TimingCliffTime == nil &&
+		l.TimingCliffAmount.Int == nil && l.TimingVestingPeriod == nil && l.TimingVestingIncrement == nil
+}

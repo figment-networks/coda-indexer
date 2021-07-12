@@ -96,6 +96,8 @@ type Block struct {
 	ProtocolStateProof *ProtocolStateProof `json:"protocolStateProof"`
 	Transactions       *Transactions       `json:"transactions"`
 	SnarkJobs          []*CompletedWork    `json:"snarkJobs"`
+	// WinnerAccount that wins this block
+	WinnerAccount *Account `json:"winnerAccount"`
 }
 
 // Connection as described by the Relay connections spec
@@ -225,6 +227,8 @@ type FeeTransfer struct {
 	Recipient string `json:"recipient"`
 	// Amount that the recipient is paid in this fee transfer
 	Fee string `json:"fee"`
+	// Transfer type
+	Type string `json:"type"`
 }
 
 type Histogram struct {

@@ -26,4 +26,4 @@ CREATE INDEX idx_ledger_entries_delegation
   ON ledger_entries(delegation);
 
 -- +goose Down
-DROP TABLE ledgers;
+DROP TABLE ledger_entries;

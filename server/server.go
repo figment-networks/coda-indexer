@@ -54,6 +54,7 @@ func (s *Server) initRoutes() {
 	s.GET("/validators/:id", s.GetValidator)
 	s.GET("/validators/:id/stats", timeBucketMiddleware(), s.GetValidatorStats)
 	s.GET("/delegations", s.GetDelegations)
+	s.GET("/rewards/:id", s.GetRewards)
 	s.GET("/snarkers", s.GetSnarkers)
 	s.GET("/snarker/:id", s.GetSnarker)
 	s.GET("/transactions", s.GetTransactions)
@@ -371,6 +372,26 @@ func (s *Server) GetDelegations(c *gin.Context) {
 	}
 
 	jsonOk(c, delegations)
+}
+
+// GeRewards returns rewards
+func (s Server) GetRewards(c *gin.Context) {
+	var params rewardsParams
+	if err := c.BindQuery(&params); err != nil {
+		badRequest(c, errors.New("missing parameter"))
+		return
+	}
+	if err := params.Validate(); err != nil {
+		badRequest(c, err)
+		return
+	}
+	interval, _ := model.GetTypeForTimeInterval(params.Interval)
+	rewardOwnerType, _ := model.GetTypeForRewardOwnerType(params.RewardOwnerType)
+	resp, err := s.db.Rewards.FetchRewardsByInterval(c.Param("id"), params.ValidatorId, params.From, params.To, interval, rewardOwnerType)
+	if shouldReturn(c, err) {
+		return
+	}
+	jsonOk(c, resp)
 }
 
 // GetSnarkers renders all existing snarkers

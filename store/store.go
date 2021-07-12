@@ -13,14 +13,16 @@ import (
 type Store struct {
 	db *gorm.DB
 
-	Blocks       BlocksStore
-	Accounts     AccountsStore
-	Validators   ValidatorsStore
-	Transactions TransactionsStore
-	Jobs         JobsStore
-	Snarkers     SnarkersStore
-	Stats        StatsStore
-	Staking      StakingStore
+	Blocks           BlocksStore
+	Accounts         AccountsStore
+	Validators       ValidatorsStore
+	ValidatorsEpochs ValidatorsEpochsStore
+	Transactions     TransactionsStore
+	Jobs             JobsStore
+	Snarkers         SnarkersStore
+	Stats            StatsStore
+	Staking          StakingStore
+	Rewards          RewardStore
 }
 
 // Test checks the connection status
@@ -53,14 +55,16 @@ func New(connStr string) (*Store, error) {
 	return &Store{
 		db: conn,
 
-		Blocks:       NewBlocksStore(conn),
-		Accounts:     NewAccountsStore(conn),
-		Validators:   NewValidatorsStore(conn),
-		Transactions: NewTransactionsStore(conn),
-		Snarkers:     NewSnarkersStore(conn),
-		Jobs:         NewJobsStore(conn),
-		Stats:        NewStatsStore(conn),
-		Staking:      NewStakingStore(conn),
+		Blocks:           NewBlocksStore(conn),
+		Accounts:         NewAccountsStore(conn),
+		Validators:       NewValidatorsStore(conn),
+		ValidatorsEpochs: NewValidatorsEpochsStore(conn),
+		Transactions:     NewTransactionsStore(conn),
+		Snarkers:         NewSnarkersStore(conn),
+		Jobs:             NewJobsStore(conn),
+		Stats:            NewStatsStore(conn),
+		Staking:          NewStakingStore(conn),
+		Rewards:          NewRewardStore(conn),
 	}, nil
 }
 
@@ -74,6 +78,10 @@ func NewAccountsStore(db *gorm.DB) AccountsStore {
 
 func NewValidatorsStore(db *gorm.DB) ValidatorsStore {
 	return ValidatorsStore{scoped(db, model.Validator{})}
+}
+
+func NewValidatorsEpochsStore(db *gorm.DB) ValidatorsEpochsStore {
+	return ValidatorsEpochsStore{scoped(db, model.ValidatorEpoch{})}
 }
 
 func NewTransactionsStore(db *gorm.DB) TransactionsStore {
@@ -94,4 +102,8 @@ func NewStatsStore(db *gorm.DB) StatsStore {
 
 func NewStakingStore(db *gorm.DB) StakingStore {
 	return StakingStore{scoped(db, nil)}
+}
+
+func NewRewardStore(db *gorm.DB) RewardStore {
+	return RewardStore{scoped(db, model.BlockReward{})}
 }

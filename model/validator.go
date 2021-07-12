@@ -32,6 +32,19 @@ type ValidatorStat struct {
 	DelegationsAmount   string `json:"delegations_amount"`
 }
 
+type ValidatorEpoch struct {
+	ID             int              `json:"-"`
+	AccountId      int              `json:"account_id"`
+	AccountAddress string           `json:"account_address"`
+	Epoch          int              `json:"epoch"`
+	ValidatorFee   types.Percentage `json:"validator_fee"`
+}
+
+// TableName returns the model table name
+func (ValidatorEpoch) TableName() string {
+	return "validator_epochs"
+}
+
 // Validate returns an error if validator is invalid
 func (v Validator) Validate() error {
 	if v.PublicKey == "" {

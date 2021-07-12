@@ -10,20 +10,25 @@ import (
 
 	"github.com/figment-networks/mina-indexer/client/archive"
 	"github.com/figment-networks/mina-indexer/client/graph"
+	"github.com/figment-networks/mina-indexer/client/staketab"
 	"github.com/figment-networks/mina-indexer/config"
 	"github.com/figment-networks/mina-indexer/indexing"
 	"github.com/figment-networks/mina-indexer/model"
 	"github.com/figment-networks/mina-indexer/model/mapper"
+	"github.com/figment-networks/mina-indexer/model/types"
 	"github.com/figment-networks/mina-indexer/store"
 )
 
 const unsafeBlockThreshold = 15
 
+const finalityThreshold uint = 290
+
 type SyncWorker struct {
-	cfg           *config.Config
-	db            *store.Store
-	graphClient   *graph.Client
-	archiveClient *archive.Client
+	cfg            *config.Config
+	db             *store.Store
+	graphClient    *graph.Client
+	archiveClient  *archive.Client
+	staketabClient *staketab.Client
 }
 
 func NewSyncWorker(
@@ -31,12 +36,14 @@ func NewSyncWorker(
 	db *store.Store,
 	graphClient *graph.Client,
 	archiveClient *archive.Client,
+	staketabClient *staketab.Client,
 ) SyncWorker {
 	return SyncWorker{
-		cfg:           cfg,
-		db:            db,
-		graphClient:   graphClient,
-		archiveClient: archiveClient,
+		cfg:            cfg,
+		db:             db,
+		graphClient:    graphClient,
+		archiveClient:  archiveClient,
+		staketabClient: staketabClient,
 	}
 }
 
@@ -68,7 +75,7 @@ func (w SyncWorker) Run() (int, error) {
 		Limit: 100,
 	}
 	if lastBlock != nil {
-		blocksRequest.StartHeight = uint(lastBlock.Height+1)
+		blocksRequest.StartHeight = uint(lastBlock.Height + 1)
 	}
 
 	log.
@@ -109,7 +116,6 @@ func (w SyncWorker) Run() (int, error) {
 		blocksRequest.StartHeight = 0
 		blocksRequest.Limit = uint(lastBlock.Height)
 	}
-
 	canonicalBlocks, err := w.archiveClient.Blocks(blocksRequest)
 	if err != nil {
 		return 0, err
@@ -140,11 +146,11 @@ func (w SyncWorker) Run() (int, error) {
 	}
 
 	log.Info("correcting canonical blocks and validators statistics")
-	var startingBlock uint64
-	if (int(lastBlock.Height) - int(limit)) > 0 {
-		startingBlock = lastBlock.Height - unsafeBlockThreshold
+	var unsafeBlocksStarting uint64
+	if (int(lastBlock.Height) - int(finalityThreshold)) > 0 {
+		unsafeBlocksStarting = lastBlock.Height - unsafeBlockThreshold
 	}
-	unsafeBlocks, err := w.db.Blocks.FindUnsafeBlocks(startingBlock)
+	unsafeBlocks, err := w.db.Blocks.FindUnsafeBlocks(unsafeBlocksStarting)
 	if err != nil {
 		return 0, err
 	}
@@ -186,6 +192,23 @@ func (w SyncWorker) Run() (int, error) {
 		}
 	}
 
+	log.Info("calculating rewards for safe canonical blocks")
+	safeCanonicalBlocksStarting := uint64(blocksRequest.StartHeight)
+	lastCalculatedBlockReward, err := w.db.Blocks.FindLastCalculatedBlockReward(uint64(blocksRequest.StartHeight))
+	if err == nil {
+		safeCanonicalBlocksStarting = lastCalculatedBlockReward.Height
+	}
+
+	blocksForRewards, err := w.db.Blocks.FindNonCalculatedBlockRewards(safeCanonicalBlocksStarting, unsafeBlocksStarting)
+	if err != nil {
+		return 0, err
+	}
+	for _, block := range blocksForRewards {
+		if err := indexing.RewardCalculation(w.db, block); err != nil {
+			return 0, err
+		}
+	}
+
 	log.Info("processing staging ledger")
 	if err := w.processStagingLedger(); err != nil {
 		log.WithError(err).Error("staging ledger processing failed")
@@ -193,7 +216,6 @@ func (w SyncWorker) Run() (int, error) {
 	}
 
 	var lag int
-
 	if len(blocks) > 0 {
 		lag = status.HighestBlockLengthReceived - int(blocks[len(blocks)-1].Height)
 		log.WithField("lag", lag).Info("sync finished")
@@ -218,12 +240,38 @@ func (w SyncWorker) processBlock(hash string) error {
 		graphBlock = nil
 	}
 
+	validatorEpochs := []model.ValidatorEpoch{}
+	if graphBlock != nil {
+		validatorEpochs, err = w.db.ValidatorsEpochs.GetValidatorEpochs(graphBlock.ProtocolState.ConsensusState.Epoch, "")
+		if err != nil && err != store.ErrNotFound {
+			return err
+		}
+		if len(validatorEpochs) == 0 {
+			providers, err := w.staketabClient.GetAllProviders()
+			if err != nil {
+				return err
+			}
+			for _, p := range providers.StakingProviders {
+				if p.ProviderAddress == "" {
+					continue
+				}
+				validatorEpoch := model.ValidatorEpoch{
+					AccountId:      p.ProviderId,
+					AccountAddress: p.ProviderAddress,
+					ValidatorFee:   types.NewFloat64Percentage(p.ProviderFee),
+				}
+				fmt.Sscanf(graphBlock.ProtocolState.ConsensusState.Epoch, "%d", &validatorEpoch.Epoch)
+				validatorEpochs = append(validatorEpochs, validatorEpoch)
+			}
+		}
+	}
+
 	log.
 		WithField("hash", archiveBlock.StateHash).
 		WithField("height", archiveBlock.Height).
 		Debug("processing block")
 
-	data, err := indexing.Prepare(archiveBlock, graphBlock)
+	data, err := indexing.Prepare(archiveBlock, graphBlock, validatorEpochs)
 	if err != nil {
 		return err
 	}

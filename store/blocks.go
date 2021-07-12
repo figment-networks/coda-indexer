@@ -107,3 +107,28 @@ func (s BlocksStore) FindUnsafeBlocks(startingHeight uint64) ([]model.Block, err
 
 	return result, scope.Find(&result).Error
 }
+
+// FirstBlockOfEpoch returns the first block of epoch
+func (s BlocksStore) FirstBlockOfEpoch(epoch string) (*model.Block, error) {
+	block := &model.Block{}
+	err := s.db.Where("epoch >= ?", epoch).Order("height ASC").Limit(1).Take(block).Error
+	return block, checkErr(err)
+}
+
+// FindNonCalculatedBlockRewards returns the non calculated blocks for rewards
+func (s BlocksStore) FindNonCalculatedBlockRewards(from, to uint64) ([]model.Block, error) {
+	result := []model.Block{}
+
+	scope := s.db.Where("height >= ? AND height < ? AND canonical = ? AND reward_calculated = ?", from, to, true, false).
+		Order("height asc")
+	return result, scope.Find(&result).Error
+}
+
+// FindLastCalculatedBlockReward returns the last calculated block reward
+func (s BlocksStore) FindLastCalculatedBlockReward(from uint64) (*model.Block, error) {
+	block := &model.Block{}
+
+	err := s.db.Where("height > ? AND canonical = ? AND reward_calculated = ?", from, true, true).
+		Order("height desc").Limit(1).Take(block).Error
+	return block, checkErr(err)
+}

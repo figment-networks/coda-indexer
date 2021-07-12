@@ -8,6 +8,8 @@ import (
 	"github.com/figment-networks/mina-indexer/model/types"
 )
 
+const superchargedReward = 1440000000000
+
 func BlockFromArchive(input *archive.Block) (*model.Block, error) {
 	block := &model.Block{
 		Canonical:         false,
@@ -28,6 +30,11 @@ func BlockFromArchive(input *archive.Block) (*model.Block, error) {
 			block.Coinbase = types.NewInt64Amount(cmd.Fee)
 			break
 		}
+	}
+
+	if block.Coinbase.Int != nil {
+		// The coinbase reward for producing a block is 720 tokens. for supercharged 2x
+		block.Supercharged = block.Coinbase.Int64() == superchargedReward
 	}
 
 	return block, block.Validate()

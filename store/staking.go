@@ -116,6 +116,19 @@ func (s StakingStore) LedgerRecords(ledgerID int) ([]model.LedgerEntry, error) {
 	return result, checkErr(err)
 }
 
+// LedgerRecordsOfDelegate returns delegations' ledger info
+func (s StakingStore) LedgerRecordsOfDelegate(ledgerID int, delegate string) ([]model.LedgerEntry, error) {
+	result := []model.LedgerEntry{}
+
+	err := s.db.
+		Model(&model.LedgerEntry{}).
+		Where("ledger_id = ? AND delegate = ? AND delegation = ?", ledgerID, delegate, true).
+		Find(&result).
+		Error
+
+	return result, checkErr(err)
+}
+
 // FindDelegations returns delegations for a given ledger ID
 func (s StakingStore) FindDelegations(params FindDelegationsParams) ([]model.Delegation, error) {
 	result := []model.Delegation{}
